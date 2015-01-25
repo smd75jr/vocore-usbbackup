@@ -1,0 +1,207 @@
+#!/bin/bash
+#usbbackup v0.01a
+#Automatic USB Drive backup script, called by udev rule
+
+#TODO: Future - Copy progress bar
+
+
+
+
+#********Set script_running LED to yellow (tri-color)
+#********set backup_drive_error LED to green (bi-color)
+#********set guest_drive_error LED to green (bi-color)
+#********set file_ops LED to green (bi-color)
+#********set file_copy LED to green (tri-color)
+
+
+
+
+backup_drive_serial="" #device serial number of backup destination drive
+devinfo_path="/tmp/usbdevinfo" #location of file containing dump of envionment variables of calling shell
+
+backup_drive_path="/media/store" #mount point of backup drive
+dev_mount_path="/media/source" #mount point of device to be backed up
+
+current_date=`date +%m-%d-%y` #get current date
+current_time=`date +%k-%M` #get current time
+
+set 2>1 >> $devinfo_path #dump environment variables of the calling shell
+
+dev_path_prep=`grep DEVNAME $devinfo_path` #get /dev path of device
+dev_path=${dev_path_prep:8} #trim unneccesary characters from string
+
+dev_serial_prep=`grep ID_SERIAL $devinfo_path` #get device serial number
+dev_serial=${dev_serial_prep:10} ##trim unneccesary characters from string
+
+if [ "$dev_serial" == "$backup_drive_serial" ]; then #check if detected device is the backup drive
+	echo -e 'Backup drive detected\n'
+	echo -e 'Mounting Backup drive '$dev_path' to '$backup_path'\n'
+	
+	mount $dev_path $backup_drive_path #mount the backup drive
+	if [ "$?" == "1" ]; then #check if mount threw any errors
+		#********set backup drive error LED to red (bi-color)
+
+
+		#********set script_running LED to red (tri-color)
+
+
+		echo -e 'WARNING: Error mounting '$dev_path' to '$backup_path'\n' #print error message to stdout
+		echo -e 'WARNING: Backup drive not mounted\n' #print error message to stdout
+		echo -e 'WARNING: Error mounting '$dev_path' to '$backup_path'\n' 1>&2 #print error message to stderr
+		echo -e 'WARNING: Backup drive not mounted\n' 1>&2 #print error message to stderr
+		exit 1 #exit with status 1
+	else
+		#********set backup drive error LED to green (bi-color)
+
+
+		echo -e 'Sucessfully mounted '$dev_path' to '$backup_drive_path'\n' #print success message to stdout
+		exit 0 #exit with status 0
+	fi
+fi
+
+
+
+
+if [ ! -d "$dev_mount_path" ]; then #check if directory $dev_mount_path does not exist
+	mkdir $dev_mount_path #if $dev_mount_path does not exist, create it
+	if [ "$?" == "1" ]; then #check if mkdir threw any errors
+		#********set guest drive error LED to red (bi-color)
+
+
+		#********set script_running LED to red (tri-color)
+
+
+		echo -e 'WARNING: Error creating '$dev_mount_path'\n' #print error message to stdout
+		echo -e 'WARNING: Guest drive mount point not created\n' #print error message to stdout
+		echo -e 'WARNING: Error creating '$dev_mount_path'\n' 1>&2 #print error message to stdout
+		echo -e 'WARNING: Guest drive mount point not created\n' 1>&2 #print error message to stdout
+		exit 1 #exit with status 1
+	else
+		#********set guest drive error LED to green (bi-color)
+
+
+		echo -e 'Sucessfully created '$dev_mount_point'\n' #print success message to stdout
+	fi
+fi
+
+
+
+mount $dev_path $dev_mount_path #mount guest drive located at $dev_path to mount point $dev_mount_path
+if [ "$?" == "1" ]; then #check if mount threw any errors
+	#********set backup drive error LED to red (bi-color)
+
+
+	#********set script_running LED to red (tri-color)
+
+
+	echo -e 'WARNING: Error mounting '$dev_path' to '$dev_mount_path'\n' #print error message to stdout
+	echo -e 'WARNING: Guest drive not mounted\n' #print error message to stdout
+	echo -e 'WARNING: Error mounting '$dev_path' to '$dev_mount_path'\n' 1>&2 #print error message to stderr
+	echo -e 'WARNING: Guest drive not mounted\n' 1>&2 #print error message to stderr
+	exit 1 #exit with status 1
+else
+	#********set backup drive error LED to green (bi-color)
+
+
+	echo -e 'Sucessfully mounted '$dev_path' to '$dev_mount_path'\n' #print success message to stdout
+fi
+
+
+
+dev_space_used=`du -s $dev_mount_path | cut -f1` #get guest drives used space in bytes
+echo -e 'Guest drives used size is '$dev_space_used' bytes' #print guest drives used space in bytes to stdout
+
+backup_space_available=`df -k / | tail -1 | awk '{print $4}'` #get backup drives available space in bytes
+echo -e 'Backup drive available space is '$backup_space_available' bytes\n' #print backup drives available space in bytes
+
+if [ "$backup_space_available" -lt "$dev_space_used" ] then #check if there is enough space on the backup drive
+	#********set backup_drive LED to red (bi-color)
+
+
+	#********set script_running LED to red (tri-color)
+
+
+	echo -e 'WARNING: Not enough free space on backup drive\n' #print error message to stdout
+	echo -e 'Needed '$dev_space_used' bytes, only '$backup_space_available' bytes are free\n' #print error message to stdout
+	echo -e 'WARNING: Not enough free space on backup drive\n' 1>&2 #print error message to stderr
+	echo -e 'Needed '$dev_space_used' bytes, only '$backup_space_available' bytes are free\n' 1>&2 #print error message to stderr
+	exit 1 #exit with status 1
+else
+	#********set backup_drive LED to green (bi-color)
+
+
+fi
+
+
+
+backup_dest_dir=$backup_drive_path'/'$current_date'_'$current_time'_'$dev_serial #full path of backup destination directory; located in /media/store
+
+mkdir "$backup_dest_dir" #create backup destination directory
+if [ "$?" == "1" ]; then #check if mkdir threw any errors
+	#********set file-ops LED to red (bi-color)
+
+
+	#********set script_running LED to red (tri-color)
+
+
+	echo -e 'WARNING: Error creating backup destination directory '$backup_dest_dir'\n' #print error message to stdout
+	echo -e 'WARNING: Error creating backup destination directory '$backup_dest_dir'\n' 1>&2 #print error message to stderr
+	exit 1 #exit with status 1
+else
+	#********set file-ops LED to green (bicolor)
+
+
+fi
+
+
+#********set file_copy LED to yellow (tri-color)
+
+
+cp -r "$dev_mount_path" "$backup_dest_dir"
+if [ "$?" == "1" ]; then #check if mkdir threw any errors
+	#********set file_copy LED to red (tri-color)
+
+
+	#********set script_running LED to red (tri-color)
+
+
+	echo -e 'WARNING: Error copying files from '$dev_mount_point' to destination directory '$backup_dest_dir'\n' #print error message to stdout
+	echo -e 'WARNING: Error copying files from '$dev_mount_point' to destination directory '$backup_dest_dir'\n' 1>&2 #print error message to stderr
+	exit 1 #exit with status 1
+else
+	#********set file-ops LED to green (bi-color)
+
+
+	#********set file_copy LED to green (tri_color)
+
+
+fi
+
+
+
+
+
+
+
+
+
+#********set backup_drive_error LED to green (bi-color)
+
+
+#********set guest_drive_error LED to green (bi-color)
+
+
+#********set file_ops LED to green (bi-color)
+
+
+#********set file_copy LED to green (tri-color)
+
+
+#********set script_running LED to green (tri-color)
+
+
+
+
+
+echo -e 'NOTICE: Files copied sucsessfully\n'
+exit 0 #exit with status 0
